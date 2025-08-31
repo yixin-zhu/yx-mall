@@ -6,6 +6,7 @@ import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.utils.CacheClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,42 +25,41 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private CacheClient cacheClient;
+
 
     @Override
     public Result queryById(Long id) {
-        String key = CACHE_SHOP_KEY + id;
-        // 1. 从Redis查询商铺缓存
-        String shopJson = stringRedisTemplate.opsForValue().get(key);
-        // 2. 判断是否存在
-        if (shopJson != null && !shopJson.isEmpty()) {
-            // 3. 存在，直接返回
-            // 使用了hutool库的JSONUtil将JSON字符串转换为Shop对象
-            Shop shop = JSONUtil.toBean(shopJson, Shop.class);
-            return Result.ok(shop);
-        }
-        // 4. 不存在，查询数据库
-        Shop shop = getById(id);
-        // 5. 判断是否存在
+        // 解决缓存穿透
+        Shop shop = cacheClient
+                .queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class,
+                        this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        // 互斥锁解决缓存击穿
+        // Shop shop = cacheClient
+        // .queryWithMutex(CACHE_SHOP_KEY, id, Shop.class, this::getById,
+        // CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        // 逻辑过期解决缓存击穿
+        // Shop shop = cacheClient
+        // .queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class,
+        // this::getById, 20L, TimeUnit.SECONDS);
         if (shop == null) {
-            // 6. 不存在，返回错误
-            return Result.fail("店铺不存在");
+            return Result.fail("店铺不存在！");
         }
-        // 7. 存在，写入Redis
-        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), CACHE_SHOP_TTL, TimeUnit.MINUTES);
-        // 8. 返回商铺信息
+        // 7.返回
         return Result.ok(shop);
     }
 
     @Override
     @Transactional
-    public Result update(Shop shop){
+    public Result update(Shop shop) {
         Long id = shop.getId();
         if (id == null) {
             return Result.fail("店铺id不能为空");
         }
-        // 1. 更新数据库
+        // 1.更新数据库
         updateById(shop);
-        // 2. 删除缓存
+        // 2.删除缓存
         stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
         return Result.ok();
     }
