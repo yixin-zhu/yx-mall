@@ -58,6 +58,7 @@ public class BlogController {
         return blogService.queryBlogLikes(id);
     }
 
+    // 查询某个用户的笔记
     @GetMapping("/of/user")
     public Result queryBlogByUserId(
             @RequestParam(value = "current", defaultValue = "1") Integer current,
