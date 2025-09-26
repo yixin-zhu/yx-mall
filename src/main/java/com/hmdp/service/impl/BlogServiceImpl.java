@@ -164,6 +164,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         // 1.获取当前用户
         Long userId = UserHolder.getUser().getId();
         // 2.查询收件箱 ZREVRANGEBYSCORE key Max Min LIMIT offset count
+        // 在Zset里，分数是时间戳，根据时间戳倒序查询
         String key = FEED_KEY + userId;
         Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet()
                 .reverseRangeByScoreWithScores(key, 0, max, offset, 2);
@@ -180,9 +181,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             ids.add(Long.valueOf(tuple.getValue()));
             // 4.2.获取分数(时间戳）
             long time = tuple.getScore().longValue();
+            // 假如连续的时间戳是一样的，增加偏移量
             if(time == minTime){
                 os++;
             }else{
+                // 假如不一样，重置最小时间戳，偏移量改为1
                 minTime = time;
                 os = 1;
             }

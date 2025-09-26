@@ -71,6 +71,8 @@ public class BlogController {
         return Result.ok(records);
     }
 
+    // 用于接续查询之前的分页
+    // 第一次查询时由前端传入
     @GetMapping("/of/follow")
     public Result queryBlogOfFollow(
             @RequestParam("lastId") Long max, @RequestParam(value = "offset", defaultValue = "0") Integer offset){
