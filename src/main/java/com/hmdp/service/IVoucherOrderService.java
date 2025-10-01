@@ -17,4 +17,7 @@ public interface IVoucherOrderService extends IService<VoucherOrder> {
     Result seckillVoucher(Long voucherId);
 
 
+    // 真正在数据库创建订单
+    // 由MQReceiver调用
+    void createVoucherOrder(VoucherOrder voucherOrder);
 }

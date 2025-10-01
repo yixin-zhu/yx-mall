@@ -1,6 +1,7 @@
 package com.hmdp;
 
 import com.hmdp.entity.Shop;
+import com.hmdp.entity.VoucherOrder;
 import com.hmdp.service.impl.ShopServiceImpl;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisIdWorker;
@@ -37,10 +38,13 @@ class HmDianPingApplicationTests {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private com.hmdp.mq.MQSender mqSender;
+
     private ExecutorService es = Executors.newFixedThreadPool(500);
 
+    // 每个测试用例后执行
     @AfterEach
-        // 每个测试用例后执行
     void tearDown() {
         stringRedisTemplate.getConnectionFactory().getConnection().flushDb();
     }
@@ -106,5 +110,18 @@ class HmDianPingApplicationTests {
         // 统计数量
         Long count = stringRedisTemplate.opsForHyperLogLog().size("hl2");
         System.out.println("count = " + count);
+    }
+
+    @Test
+    void testMQReceiver(){
+        VoucherOrder order = new VoucherOrder();
+        order.setId(123L);
+        mqSender.sendSeckillMessage(order);
+        // 等待几秒看消费结果
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
